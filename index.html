@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>File Viewer</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@2/dist/tesseract.min.js"></script>
+</head>
+<body class="bg-gray-100 p-4">
+<h1 class="text-2xl font-bold mb-4">File Viewer</h1>
+<div class="mb-4">
+<label class="block mb-2 font-semibold">Enter URL with ?url= parameter:</label>
+<input id="urlInput" type="text" class="w-full p-2 border border-gray-300 rounded" placeholder="Enter URL with ?url=..." />
+<button id="loadBtn" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded">Load Image</button>
+</div>
+<div id="imageContainer" class="mb-4">
+<img id="loadedImage" src="" alt="Loaded" class="max-w-full h-auto border" crossOrigin="anonymous" />
+</div>
+<div id="ocrStatus" class="mb-2">OCR Status: Not started</div>
+<div class="mb-4">
+<label class="block mb-2 font-semibold">Enter Captcha Text:</label>
+<input id="captchaInput" type="text" class="w-full p-2 border border-gray-300 rounded" />
+<button id="submitBtn" class="mt-2 bg-green-500 text-white px-4 py-2 rounded">Submit</button>
+</div>
+<div id="resultMessage" class="text-lg font-semibold"></div>
+<div class="mt-4">
+<h2 class="text-xl font-bold mb-2">Try URL:</h2>
+<p id="tryUrl" class="bg-gray-200 p-2 rounded"></p>
+</div>
+<script>
+const urlParams = new URLSearchParams(window.location.search);
+const urlParam = urlParams.get('url');
+const image = document.getElementById('loadedImage');
+const ocrStatus = document.getElementById('ocrStatus');
+const resultMessage = document.getElementById('resultMessage');
+const captchaInput = document.getElementById('captchaInput');
+const submitBtn = document.getElementById('submitBtn');
+const tryUrl = document.getElementById('tryUrl');
+
+let ocrText = '';
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    image.onload = () => resolve();
+    image.onerror = () => reject();
+    image.src = src;
+  });
+}
+
+async function performOCR() {
+  ocrStatus.textContent = 'OCR Status: Processing...';
+  try {
+    const result = await Tesseract.recognize(image, 'eng');
+    ocrText = result.data.text.trim();
+    ocrStatus.textContent = 'OCR Status: Completed';
+  } catch (err) {
+    ocrStatus.textContent = 'OCR Failed';
+    ocrText = '';
+  }
+}
+
+async function init() {
+  if (urlParam) {
+    try {
+      await loadImage(urlParam);
+      tryUrl.textContent = urlParam;
+      await performOCR();
+    } catch {
+      // fallback to sample image
+      image.src = './sample.png';
+      tryUrl.textContent = 'Failed to load remote image, using sample.';
+      await performOCR();
+    }
+  } else {
+    // no URL param, load sample
+    image.src = './sample.png';
+    tryUrl.textContent = 'No URL parameter, using sample.';
+    await performOCR();
+  }
+}
+
+loadBtn.onclick = () => {
+  const url = document.getElementById('urlInput').value;
+  if (url) {
+    window.location.search = '?url=' + encodeURIComponent(url);
+  }
+};
+
+submitBtn.onclick = () => {
+  const userText = captchaInput.value.trim();
+  if (userText && ocrText && userText.toLowerCase() === ocrText.toLowerCase()) {
+    resultMessage.textContent = 'Success! CAPTCHA matched.';
+    resultMessage.className = 'text-green-600';
+  } else {
+    resultMessage.textContent = 'Failure! CAPTCHA did not match.';
+    resultMessage.className = 'text-red-600';
+  }
+};
+
+init();
+</script>
+</body>
+</html>
